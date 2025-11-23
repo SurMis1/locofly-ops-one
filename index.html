@@ -72,21 +72,13 @@
       font-size: 12px;
       color: #555;
     }
-    .pill {
-      display: inline-block;
-      padding: 2px 6px;
-      border-radius: 999px;
-      font-size: 11px;
-      background: #eee;
-      margin-left: 4px;
-    }
   </style>
 </head>
 <body>
 
 <div class="card">
   <h1>Locofly Ops</h1>
-  <div class="small">Picking &amp; Putaway app using your existing Node/Express backend.</div>
+  <div class="small">Picking &amp; Putaway app using live Locofly backend.</div>
   <div class="row" style="margin-top:8px;">
     <div>
       <label for="location">Location</label>
@@ -131,9 +123,6 @@
   <div><strong>Delta:</strong> <span id="lastDelta">—</span></div>
   <div><strong>New Qty:</strong> <span id="lastNewQty">—</span></div>
   <div><strong>Status:</strong> <span id="lastStatus">—</span></div>
-  <div class="small" style="margin-top:6px;">
-    If multiple records exist for same barcode at a location, the first match is used.
-  </div>
 </div>
 
 <div class="card">
@@ -143,9 +132,8 @@
 
 <script>
   // === CONFIG ===
-  // Change this to your Cloud Run base URL, e.g.:
-  // const API_BASE = "https://locofly-api-xxxxxx.asia-south1.run.app";
-  const API_BASE = "http://localhost:8080";
+  // Your live backend (Cloud Run)
+  const API_BASE = "https://locofly-backend-474391274468.asia-south1.run.app";
 
   document.getElementById("apiBaseDisplay").textContent = API_BASE;
 
@@ -199,7 +187,6 @@
         locationSelect.appendChild(opt);
       });
     } catch (e) {
-      console.error(e);
       appendLog("Failed to load locations: " + e.message, true);
       locationSelect.innerHTML = "<option value=''>Error loading</option>";
     }
@@ -224,16 +211,16 @@
     }
 
     try {
-      // 1) Find inventory row by barcode
-      const searchUrl = API_BASE + "/inventory?location_id=" + encodeURIComponent(locId) +
-        "&query=" + encodeURIComponent(barcode);
+      const searchUrl =
+        `${API_BASE}/inventory?location_id=${encodeURIComponent(locId)}&query=${encodeURIComponent(barcode)}`;
 
       const res = await fetch(searchUrl);
       if (!res.ok) throw new Error("Inventory HTTP " + res.status);
+
       const items = await res.json();
 
       if (!Array.isArray(items) || items.length === 0) {
-        appendLog("No item found for barcode " + barcode + " at location " + locId, true);
+        appendLog("No item found for barcode " + barcode, true);
         lastStatusEl.textContent = "No match found";
         lastItemEl.textContent = "—";
         lastPrevQtyEl.textContent = "—";
@@ -242,13 +229,11 @@
         return;
       }
 
-      // Prefer exact barcode match if multiple
       let item = items.find(i => i.barcode === barcode) || items[0];
 
       const prevQty = item.quantity;
       const delta = mode === "pick" ? -qtyVal : qtyVal;
 
-      // 2) Call /inventory/adjust
       const adjRes = await fetch(API_BASE + "/inventory/adjust", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -261,7 +246,7 @@
       if (!adjRes.ok) {
         const errBody = await adjRes.json().catch(() => ({}));
         const msg = errBody.error || ("Adjust HTTP " + adjRes.status);
-        appendLog("Adjust failed for barcode " + barcode + ": " + msg, true);
+        appendLog("Adjust failed for " + barcode + ": " + msg, true);
         lastStatusEl.textContent = "Adjust failed";
         return;
       }
@@ -271,29 +256,19 @@
         ? adjData.updated[0]
         : null;
 
-      lastItemEl.textContent = item.item_name || "—";
+      lastItemEl.textContent = item.item_name;
       lastLocationEl.textContent = item.location_id;
       lastPrevQtyEl.textContent = prevQty;
       lastDeltaEl.textContent = delta;
-      if (updated && typeof updated.quantity !== "undefined") {
-        lastNewQtyEl.textContent = updated.quantity;
-      } else {
-        lastNewQtyEl.textContent = "—";
-      }
+      lastNewQtyEl.textContent = updated ? updated.quantity : "—";
       lastStatusEl.textContent = "OK";
 
       appendLog(
-        (mode === "pick" ? "PICK" : "PUTAWAY") +
-        " barcode=" + barcode +
-        " item_id=" + item.id +
-        " delta=" + delta +
-        " prev=" + prevQty +
-        " new=" + (updated ? updated.quantity : "?")
+        `${mode === "pick" ? "PICK" : "PUTAWAY"} barcode=${barcode} prev=${prevQty} new=${updated ? updated.quantity : "?"}`
       );
 
     } catch (e) {
-      console.error(e);
-      appendLog("Scan error for " + barcode + ": " + e.message, true);
+      appendLog("Scan error: " + e.message, true);
       lastStatusEl.textContent = "Error";
     }
   }
@@ -315,40 +290,32 @@
           const now = Date.now();
           if (now - lastScanTs < SCAN_COOLDOWN_MS) return;
           lastScanTs = now;
-          const barcode = result.text;
-          handleScan(barcode);
+          handleScan(result.text);
         }
       });
+
       appendLog("Scanner started");
+
     } catch (e) {
-      console.error(e);
       appendLog("Failed to start scanner: " + e.message, true);
       stopScanner();
     }
   }
 
   function stopScanner() {
-    if (!scanning) return;
     scanning = false;
     toggleScanBtn.textContent = "Start Scanner";
     toggleScanBtn.classList.add("primary");
     toggleScanBtn.classList.remove("secondary");
-    if (codeReader) {
-      codeReader.reset();
-      codeReader = null;
-    }
+    if (codeReader) codeReader.reset();
     appendLog("Scanner stopped");
   }
 
   toggleScanBtn.addEventListener("click", () => {
-    if (scanning) {
-      stopScanner();
-    } else {
-      startScanner();
-    }
+    if (scanning) stopScanner();
+    else startScanner();
   });
 
-  // Init
   loadLocations();
 </script>
 
