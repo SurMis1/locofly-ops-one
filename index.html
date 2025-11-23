@@ -1,81 +1,130 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Locofly Ops – Picking & Putaway</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://unpkg.com/@zxing/library@latest"></script>
+  <meta charset="UTF-8" />
+  <title>Locofly Ops – Picking & Putaway</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Quagga2 (live barcode scanner) -->
+  <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.10.2/dist/quagga.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 12px;
+      background: #f4f4f4;
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0 0 8px 0;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    label {
+      font-size: 13px;
+      display: block;
+      margin-bottom: 4px;
+    }
+    select, input, button {
+      width: 100%;
+      padding: 8px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+    }
+    button.primary {
+      background: #0070f3;
+      color: #fff;
+    }
+    button.secondary {
+      background: #eee;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .row > div {
+      flex: 1;
+    }
 
-<style>
-  * { box-sizing: border-box; }
-  body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    margin: 0;
-    padding: 12px;
-    background: #f4f4f4;
-  }
-  h1 { font-size: 20px;margin: 0 0 8px 0;}
-  .card {
-    background: #fff;
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 12px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  }
-  label {font-size: 13px;display: block;margin-bottom: 4px;}
-  
-  select, input, button {
-    width: 100%;padding: 8px;font-size: 14px;
-    border-radius: 6px;border: 1px solid #ccc;
-  }
-  button {cursor: pointer;border: none;}
-  button.primary {background: #0070f3;color: #fff;}
-  button.secondary {background: #eee;}
-  
-  #video {width: 100%;border-radius: 8px;background: #000;}
-  #log {font-size: 12px;max-height: 220px;overflow-y: auto;white-space: pre-wrap;}
-  .small {font-size: 12px;color: #555;}
-</style>
+    /* Scanner area */
+    #scanner-container {
+      position: relative;
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #000;
+    }
+    #scanner-container video,
+    #scanner-container canvas {
+      width: 100%;
+      height: auto;
+    }
+
+    #log {
+      font-size: 12px;
+      max-height: 220px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    .small {
+      font-size: 12px;
+      color: #555;
+    }
+  </style>
 </head>
-
 <body>
 
 <div class="card">
   <h1>Locofly Ops</h1>
-  <div class="small">Picking & Putaway using live backend.</div>
-
-  <div class="row" style="margin-top:8px;display:flex;gap:8px;">
+  <div class="small">Picking &amp; Putaway using live backend.</div>
+  <div class="row" style="margin-top:8px;">
     <div>
-      <label>Location</label>
-      <select id="location"><option>Loading...</option></select>
+      <label for="location">Location</label>
+      <select id="location">
+        <option value="">Loading...</option>
+      </select>
     </div>
     <div>
-      <label>Mode</label>
+      <label for="mode">Mode</label>
       <select id="mode">
-        <option value="pick">Picking (-)</option>
+        <option value="pick">Picking (−)</option>
         <option value="putaway">Putaway (+)</option>
       </select>
     </div>
   </div>
-
-  <div class="row" style="display:flex;gap:8px;">
+  <div class="row">
     <div>
-      <label>Qty per scan</label>
-      <input id="qty" type="number" value="1" min="0.01" step="0.01">
+      <label for="qty">Qty per scan</label>
+      <input id="qty" type="number" value="1" min="0.01" step="0.01" />
     </div>
     <div>
       <label>&nbsp;</label>
       <button id="toggleScan" class="primary">Start Scanner</button>
     </div>
   </div>
-
   <div class="small">
     Backend: <code id="apiBaseDisplay"></code>
   </div>
 </div>
 
 <div class="card">
-  <video id="video" muted playsinline></video>
+  <div id="scanner-container">
+    <!-- Quagga will inject video/canvas inside this div -->
+    <div id="scanner"></div>
+  </div>
 </div>
 
 <div class="card">
@@ -83,7 +132,7 @@
   <div><strong>Barcode:</strong> <span id="lastBarcode">—</span></div>
   <div><strong>Item:</strong> <span id="lastItem">—</span></div>
   <div><strong>Location:</strong> <span id="lastLocation">—</span></div>
-  <div><strong>Prev Qty:</strong> <span id="lastPrevQty">—</span></div>
+  <div><strong>Previous Qty:</strong> <span id="lastPrevQty">—</span></div>
   <div><strong>Delta:</strong> <span id="lastDelta">—</span></div>
   <div><strong>New Qty:</strong> <span id="lastNewQty">—</span></div>
   <div><strong>Status:</strong> <span id="lastStatus">—</span></div>
@@ -95,170 +144,226 @@
 </div>
 
 <script>
-const API_BASE = "https://locofly-backend-474391274468.asia-south1.run.app";
-document.getElementById("apiBaseDisplay").textContent = API_BASE;
+  // === CONFIG ===
+  const API_BASE = "https://locofly-backend-474391274468.asia-south1.run.app";
 
-let scanning = false;
-let lastScanTs = 0;
-const SCAN_COOLDOWN = 900;
+  document.getElementById("apiBaseDisplay").textContent = API_BASE;
 
-let codeReader = null;
+  const locationSelect = document.getElementById("location");
+  const modeSelect = document.getElementById("mode");
+  const qtyInput = document.getElementById("qty");
+  const toggleScanBtn = document.getElementById("toggleScan");
+  const logEl = document.getElementById("log");
 
-const video = document.getElementById("video");
-const toggleScanBtn = document.getElementById("toggleScan");
-const logEl = document.getElementById("log");
+  const lastBarcodeEl = document.getElementById("lastBarcode");
+  const lastItemEl = document.getElementById("lastItem");
+  const lastLocationEl = document.getElementById("lastLocation");
+  const lastPrevQtyEl = document.getElementById("lastPrevQty");
+  const lastDeltaEl = document.getElementById("lastDelta");
+  const lastNewQtyEl = document.getElementById("lastNewQty");
+  const lastStatusEl = document.getElementById("lastStatus");
 
-const lastBarcodeEl = document.getElementById("lastBarcode");
-const lastItemEl = document.getElementById("lastItem");
-const lastLocationEl = document.getElementById("lastLocation");
-const lastPrevQtyEl = document.getElementById("lastPrevQty");
-const lastDeltaEl = document.getElementById("lastDelta");
-const lastNewQtyEl = document.getElementById("lastNewQty");
-const lastStatusEl = document.getElementById("lastStatus");
+  let scanning = false;
+  let lastScanTs = 0;
+  const SCAN_COOLDOWN_MS = 900;
 
-// --------------- LOAD LOCATIONS ----------------
-async function loadLocations() {
-  try {
-    const res = await fetch(API_BASE + "/locations");
-    const data = await res.json();
-    const sel = document.getElementById("location");
-
-    sel.innerHTML = "<option value=''>Select location</option>";
-    data.forEach(l => {
-      const o = document.createElement("option");
-      o.value = l.id;
-      o.textContent = `${l.name} (ID ${l.id})`;
-      sel.appendChild(o);
-    });
-  } catch (e) {
-    appendLog("Failed to load locations: " + e.message, true);
+  function appendLog(msg, isError = false) {
+    const ts = new Date().toLocaleTimeString();
+    const prefix = isError ? "[ERR]" : "[OK]";
+    logEl.textContent = `[${ts}] ${prefix} ${msg}\n` + logEl.textContent;
   }
-}
-loadLocations();
 
-// --------------- LOG ----------------
-function appendLog(msg, err=false){
-  const ts = new Date().toLocaleTimeString();
-  logEl.textContent = `[${ts}] ${err ? "ERR" : "OK"} ${msg}\n` + logEl.textContent;
-}
+  async function loadLocations() {
+    try {
+      const res = await fetch(API_BASE + "/locations");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      locationSelect.innerHTML = "";
+      if (!Array.isArray(data) || data.length === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No locations found";
+        locationSelect.appendChild(opt);
+        return;
+      }
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Select location";
+      locationSelect.appendChild(placeholder);
+      data.forEach(loc => {
+        const opt = document.createElement("option");
+        opt.value = loc.id;
+        opt.textContent = loc.name + " (ID " + loc.id + ")";
+        locationSelect.appendChild(opt);
+      });
+    } catch (e) {
+      appendLog("Failed to load locations: " + e.message, true);
+      locationSelect.innerHTML = "<option value=''>Error loading</option>";
+    }
+  }
 
-// --------------- HANDLE SCAN ----------------
-async function handleScan(barcode){
-  const locId = document.getElementById("location").value;
-  const mode = document.getElementById("mode").value;
-  const qty  = parseFloat(document.getElementById("qty").value);
+  async function handleScan(barcode) {
+    const locId = locationSelect.value;
+    const mode = modeSelect.value;
+    const qtyVal = parseFloat(qtyInput.value || "0");
 
-  lastBarcodeEl.textContent = barcode;
+    lastBarcodeEl.textContent = barcode;
 
-  if (!locId) return appendLog("No location selected",true);
-  if (!qty || qty <= 0) return appendLog("Invalid qty",true);
-
-  try {
-    const searchUrl = `${API_BASE}/inventory?location_id=${locId}&query=${barcode}`;
-    const res = await fetch(searchUrl);
-    const items = await res.json();
-
-    if (!items.length){
-      lastStatusEl.textContent = "No match";
-      return appendLog("No match for " + barcode, true);
+    if (!locId) {
+      appendLog("Scan ignored: no location selected", true);
+      lastStatusEl.textContent = "No location selected";
+      return;
+    }
+    if (!qtyVal || qtyVal <= 0) {
+      appendLog("Scan ignored: invalid quantity " + qtyVal, true);
+      lastStatusEl.textContent = "Invalid quantity";
+      return;
     }
 
-    const item = items.find(i => i.barcode === barcode) || items[0];
-    const prev = item.quantity;
-    const delta = mode === "pick" ? -qty : qty;
-
-    const adjRes = await fetch(API_BASE + "/inventory/adjust", {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({
-        location_id: Number(locId),
-        items: [{ id: item.id, delta }]
-      })
-    });
-
-    const adj = await adjRes.json();
-    const updated = adj.updated?.[0];
-
-    lastItemEl.textContent = item.item_name;
-    lastLocationEl.textContent = item.location_id;
-    lastPrevQtyEl.textContent = prev;
-    lastDeltaEl.textContent = delta;
-    lastNewQtyEl.textContent = updated?.quantity ?? "—";
-    lastStatusEl.textContent = "OK";
-
-    if (navigator.vibrate) navigator.vibrate(120);
-
-    appendLog(`SCAN ${barcode} Δ${delta}`);
-
-  } catch(e){
-    appendLog("Scan error: " + e.message,true);
-    lastStatusEl.textContent = "Error";
-  }
-}
-
-// --------------- CAMERA START (with fallback for low-end devices) ---------------
-async function startScanner(){
-  if (scanning) return;
-
-  scanning = true;
-  toggleScanBtn.textContent="Stop Scanner";
-  toggleScanBtn.classList.remove("primary");
-  toggleScanBtn.classList.add("secondary");
-
-  codeReader = new ZXing.BrowserMultiFormatReader(undefined,{ tryHarder:true });
-
-  const resolutions = [
-    { width:1280, height:720 },
-    { width:960,  height:540 },
-    { width:640,  height:480 },
-    { width:480,  height:360 }
-  ];
-
-  for (const res of resolutions){
     try {
-      appendLog(`Trying camera ${res.width}x${res.height}`);
+      const searchUrl =
+        `${API_BASE}/inventory?location_id=${encodeURIComponent(locId)}&query=${encodeURIComponent(barcode)}`;
 
-      await codeReader.decodeFromConstraints({
-        video:{
-          facingMode:{ ideal:"environment" },
-          width:{ ideal:res.width },
-          height:{ ideal:res.height }
-        }
-      }, "video", (result,err)=>{
-        if (result){
-          const now = Date.now();
-          if (now-lastScanTs < SCAN_COOLDOWN) return;
-          lastScanTs = now;
-          handleScan(result.text);
-        }
+      const res = await fetch(searchUrl);
+      if (!res.ok) throw new Error("Inventory HTTP " + res.status);
+
+      const items = await res.json();
+
+      if (!Array.isArray(items) || items.length === 0) {
+        appendLog("No item found for barcode " + barcode + " at location " + locId, true);
+        lastStatusEl.textContent = "No match found";
+        lastItemEl.textContent = "—";
+        lastPrevQtyEl.textContent = "—";
+        lastDeltaEl.textContent = "—";
+        lastNewQtyEl.textContent = "—";
+        return;
+      }
+
+      let item = items.find(i => i.barcode === barcode) || items[0];
+
+      const prevQty = item.quantity;
+      const delta = mode === "pick" ? -qtyVal : qtyVal;
+
+      const adjRes = await fetch(API_BASE + "/inventory/adjust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location_id: Number(locId),
+          items: [{ id: item.id, delta }]
+        })
       });
 
-      appendLog(`Scanner started at ${res.width}x${res.height}`);
-      return;
+      if (!adjRes.ok) {
+        const errBody = await adjRes.json().catch(() => ({}));
+        const msg = errBody.error || ("Adjust HTTP " + adjRes.status);
+        appendLog("Adjust failed for barcode " + barcode + ": " + msg, true);
+        lastStatusEl.textContent = "Adjust failed";
+        return;
+      }
 
-    } catch(e){
-      appendLog(`Failed at ${res.width}x${res.height}`,true);
+      const adjData = await adjRes.json();
+      const updated = Array.isArray(adjData.updated) && adjData.updated.length > 0
+        ? adjData.updated[0]
+        : null;
+
+      lastItemEl.textContent = item.item_name || "—";
+      lastLocationEl.textContent = item.location_id;
+      lastPrevQtyEl.textContent = prevQty;
+      lastDeltaEl.textContent = delta;
+      lastNewQtyEl.textContent = updated ? updated.quantity : "—";
+      lastStatusEl.textContent = "OK";
+
+      appendLog(
+        `${mode === "pick" ? "PICK" : "PUTAWAY"} barcode=${barcode} item_id=${item.id} delta=${delta} prev=${prevQty} new=${updated ? updated.quantity : "?"}`
+      );
+
+    } catch (e) {
+      appendLog("Scan error: " + e.message, true);
+      lastStatusEl.textContent = "Error";
     }
   }
 
-  appendLog("Camera failed on all resolutions",true);
-}
+  // Quagga onDetected handler (defined separately so we can detach)
+  function onDetected(result) {
+    const now = Date.now();
+    if (now - lastScanTs < SCAN_COOLDOWN_MS) return;
+    lastScanTs = now;
 
-// --------------- STOP ----------------
-function stopScanner(){
-  scanning = false;
-  toggleScanBtn.textContent="Start Scanner";
-  toggleScanBtn.classList.add("primary");
-  toggleScanBtn.classList.remove("secondary");
-  codeReader?.reset();
-  appendLog("Scanner stopped");
-}
+    const codeResult = result && result.codeResult;
+    const code = codeResult && codeResult.code;
+    if (!code) return;
 
-// --------------- BUTTON ----------------
-toggleScanBtn.addEventListener("click",()=>{
-  scanning ? stopScanner() : startScanner();
-});
+    handleScan(code);
+  }
 
+  function startScanner() {
+    if (scanning) return;
+    scanning = true;
+    toggleScanBtn.textContent = "Stop Scanner";
+    toggleScanBtn.classList.remove("primary");
+    toggleScanBtn.classList.add("secondary");
+
+    const config = {
+      inputStream: {
+        type: "LiveStream",
+        target: document.querySelector("#scanner"),
+        constraints: {
+          facingMode: "environment",
+          width: { min: 640, ideal: 1280, max: 1920 },
+          height: { min: 480, ideal: 720,  max: 1080 }
+        }
+      },
+      locator: {
+        patchSize: "medium",
+        halfSample: true
+      },
+      numOfWorkers: 2,
+      frequency: 10,
+      decoder: {
+        // EAN-13 etc are enough for FMCG
+        readers: ["ean_reader", "ean_8_reader", "upc_reader", "code_128_reader"]
+      },
+      locate: true
+    };
+
+    Quagga.init(config, function(err) {
+      if (err) {
+        appendLog("Scanner init error: " + err.message, true);
+        stopScanner();
+        return;
+      }
+      Quagga.start();
+      Quagga.onDetected(onDetected);
+      appendLog("Scanner started");
+    });
+  }
+
+  function stopScanner() {
+    if (!scanning) return;
+    scanning = false;
+    toggleScanBtn.textContent = "Start Scanner";
+    toggleScanBtn.classList.add("primary");
+    toggleScanBtn.classList.remove("secondary");
+    try {
+      Quagga.offDetected(onDetected);
+      Quagga.stop();
+    } catch (e) {
+      // ignore
+    }
+    appendLog("Scanner stopped");
+  }
+
+  toggleScanBtn.addEventListener("click", () => {
+    if (scanning) {
+      stopScanner();
+    } else {
+      startScanner();
+    }
+  });
+
+  // Init
+  loadLocations();
 </script>
+
 </body>
 </html>
