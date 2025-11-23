@@ -1,104 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Locofly Ops – Picking & Putaway</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
+<meta charset="UTF-8" />
+<title>Locofly Ops – Picking & Putaway</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://unpkg.com/@zxing/library@latest"></script>
 
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      margin: 0;
-      padding: 12px;
-      background: #f4f4f4;
-    }
-    h1 {
-      font-size: 20px;
-      margin: 0 0 8px 0;
-    }
-    .card {
-      background: #fff;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 12px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    label {
-      font-size: 13px;
-      display: block;
-      margin-bottom: 4px;
-    }
-    select, input, button {
-      width: 100%;
-      padding: 8px;
-      font-size: 14px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-    button {
-      cursor: pointer;
-      border: none;
-    }
-    button.primary {
-      background: #0070f3;
-      color: #fff;
-    }
-    button.secondary {
-      background: #eee;
-    }
-    .row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-    .row > div {
-      flex: 1;
-    }
-    #video {
-      width: 100%;
-      border-radius: 8px;
-      background: #000;
-    }
-    #log {
-      font-size: 12px;
-      max-height: 220px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-    }
-    .small {
-      font-size: 12px;
-      color: #555;
-    }
-  </style>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 12px;
+    background: #f4f4f4;
+  }
+  h1 { font-size: 20px;margin: 0 0 8px 0;}
+  .card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  label {font-size: 13px;display: block;margin-bottom: 4px;}
+  
+  select, input, button {
+    width: 100%;padding: 8px;font-size: 14px;
+    border-radius: 6px;border: 1px solid #ccc;
+  }
+  button {cursor: pointer;border: none;}
+  button.primary {background: #0070f3;color: #fff;}
+  button.secondary {background: #eee;}
+  
+  #video {width: 100%;border-radius: 8px;background: #000;}
+  #log {font-size: 12px;max-height: 220px;overflow-y: auto;white-space: pre-wrap;}
+  .small {font-size: 12px;color: #555;}
+</style>
 </head>
+
 <body>
 
 <div class="card">
   <h1>Locofly Ops</h1>
-  <div class="small">Picking &amp; Putaway app using live Locofly backend.</div>
+  <div class="small">Picking & Putaway using live backend.</div>
 
-  <div class="row" style="margin-top:8px;">
+  <div class="row" style="margin-top:8px;display:flex;gap:8px;">
     <div>
-      <label for="location">Location</label>
-      <select id="location">
-        <option value="">Loading...</option>
-      </select>
+      <label>Location</label>
+      <select id="location"><option>Loading...</option></select>
     </div>
     <div>
-      <label for="mode">Mode</label>
+      <label>Mode</label>
       <select id="mode">
-        <option value="pick">Picking (decrement)</option>
-        <option value="putaway">Putaway (increment)</option>
+        <option value="pick">Picking (-)</option>
+        <option value="putaway">Putaway (+)</option>
       </select>
     </div>
   </div>
 
-  <div class="row">
+  <div class="row" style="display:flex;gap:8px;">
     <div>
-      <label for="qty">Quantity per scan</label>
-      <input id="qty" type="number" value="1" min="0.01" step="0.01" />
+      <label>Qty per scan</label>
+      <input id="qty" type="number" value="1" min="0.01" step="0.01">
     </div>
     <div>
       <label>&nbsp;</label>
@@ -107,8 +70,7 @@
   </div>
 
   <div class="small">
-    Backend base URL:
-    <code id="apiBaseDisplay"></code>
+    Backend: <code id="apiBaseDisplay"></code>
   </div>
 </div>
 
@@ -121,7 +83,7 @@
   <div><strong>Barcode:</strong> <span id="lastBarcode">—</span></div>
   <div><strong>Item:</strong> <span id="lastItem">—</span></div>
   <div><strong>Location:</strong> <span id="lastLocation">—</span></div>
-  <div><strong>Previous Qty:</strong> <span id="lastPrevQty">—</span></div>
+  <div><strong>Prev Qty:</strong> <span id="lastPrevQty">—</span></div>
   <div><strong>Delta:</strong> <span id="lastDelta">—</span></div>
   <div><strong>New Qty:</strong> <span id="lastNewQty">—</span></div>
   <div><strong>Status:</strong> <span id="lastStatus">—</span></div>
@@ -133,171 +95,170 @@
 </div>
 
 <script>
-  const API_BASE = "https://locofly-backend-474391274468.asia-south1.run.app";
-  document.getElementById("apiBaseDisplay").textContent = API_BASE;
+const API_BASE = "https://locofly-backend-474391274468.asia-south1.run.app";
+document.getElementById("apiBaseDisplay").textContent = API_BASE;
 
-  const locationSelect = document.getElementById("location");
-  const modeSelect = document.getElementById("mode");
-  const qtyInput = document.getElementById("qty");
-  const toggleScanBtn = document.getElementById("toggleScan");
-  const video = document.getElementById("video");
-  const logEl = document.getElementById("log");
+let scanning = false;
+let lastScanTs = 0;
+const SCAN_COOLDOWN = 900;
 
-  const lastBarcodeEl = document.getElementById("lastBarcode");
-  const lastItemEl = document.getElementById("lastItem");
-  const lastLocationEl = document.getElementById("lastLocation");
-  const lastPrevQtyEl = document.getElementById("lastPrevQty");
-  const lastDeltaEl = document.getElementById("lastDelta");
-  const lastNewQtyEl = document.getElementById("lastNewQty");
-  const lastStatusEl = document.getElementById("lastStatus");
+let codeReader = null;
 
-  let codeReader = null;
-  let scanning = false;
-  let lastScanTs = 0;
-  const SCAN_COOLDOWN_MS = 900;
+const video = document.getElementById("video");
+const toggleScanBtn = document.getElementById("toggleScan");
+const logEl = document.getElementById("log");
 
-  function appendLog(msg, isError = false) {
-    const ts = new Date().toLocaleTimeString();
-    const prefix = isError ? "[ERR]" : "[OK]";
-    logEl.textContent = `[${ts}] ${prefix} ${msg}\n` + logEl.textContent;
+const lastBarcodeEl = document.getElementById("lastBarcode");
+const lastItemEl = document.getElementById("lastItem");
+const lastLocationEl = document.getElementById("lastLocation");
+const lastPrevQtyEl = document.getElementById("lastPrevQty");
+const lastDeltaEl = document.getElementById("lastDelta");
+const lastNewQtyEl = document.getElementById("lastNewQty");
+const lastStatusEl = document.getElementById("lastStatus");
+
+// --------------- LOAD LOCATIONS ----------------
+async function loadLocations() {
+  try {
+    const res = await fetch(API_BASE + "/locations");
+    const data = await res.json();
+    const sel = document.getElementById("location");
+
+    sel.innerHTML = "<option value=''>Select location</option>";
+    data.forEach(l => {
+      const o = document.createElement("option");
+      o.value = l.id;
+      o.textContent = `${l.name} (ID ${l.id})`;
+      sel.appendChild(o);
+    });
+  } catch (e) {
+    appendLog("Failed to load locations: " + e.message, true);
   }
+}
+loadLocations();
 
-  async function loadLocations() {
-    try {
-      const res = await fetch(API_BASE + "/locations");
-      const data = await res.json();
-      locationSelect.innerHTML = "<option value=''>Select location</option>";
-      data.forEach(loc => {
-        const opt = document.createElement("option");
-        opt.value = loc.id;
-        opt.textContent = loc.name + " (ID " + loc.id + ")";
-        locationSelect.appendChild(opt);
-      });
-    } catch (e) {
-      appendLog("Failed to load locations: " + e.message, true);
-    }
-  }
+// --------------- LOG ----------------
+function appendLog(msg, err=false){
+  const ts = new Date().toLocaleTimeString();
+  logEl.textContent = `[${ts}] ${err ? "ERR" : "OK"} ${msg}\n` + logEl.textContent;
+}
 
-  async function handleScan(barcode) {
-    const locId = locationSelect.value;
-    const mode = modeSelect.value;
-    const qtyVal = parseFloat(qtyInput.value || "0");
+// --------------- HANDLE SCAN ----------------
+async function handleScan(barcode){
+  const locId = document.getElementById("location").value;
+  const mode = document.getElementById("mode").value;
+  const qty  = parseFloat(document.getElementById("qty").value);
 
-    lastBarcodeEl.textContent = barcode;
+  lastBarcodeEl.textContent = barcode;
 
-    if (!locId) {
-      appendLog("Scan ignored: no location selected", true);
-      lastStatusEl.textContent = "No location selected";
-      return;
-    }
+  if (!locId) return appendLog("No location selected",true);
+  if (!qty || qty <= 0) return appendLog("Invalid qty",true);
 
-    if (!qtyVal || qtyVal <= 0) {
-      appendLog("Invalid quantity", true);
-      lastStatusEl.textContent = "Invalid qty";
-      return;
+  try {
+    const searchUrl = `${API_BASE}/inventory?location_id=${locId}&query=${barcode}`;
+    const res = await fetch(searchUrl);
+    const items = await res.json();
+
+    if (!items.length){
+      lastStatusEl.textContent = "No match";
+      return appendLog("No match for " + barcode, true);
     }
 
-    try {
-      const searchUrl = `${API_BASE}/inventory?location_id=${locId}&query=${barcode}`;
-      const res = await fetch(searchUrl);
-      const items = await res.json();
+    const item = items.find(i => i.barcode === barcode) || items[0];
+    const prev = item.quantity;
+    const delta = mode === "pick" ? -qty : qty;
 
-      if (!items.length) {
-        appendLog("No item found for barcode " + barcode, true);
-        lastStatusEl.textContent = "No match found";
-        return;
-      }
-
-      const item = items.find(i => i.barcode === barcode) || items[0];
-      const prevQty = item.quantity;
-      const delta = mode === "pick" ? -qtyVal : qtyVal;
-
-      const adjRes = await fetch(API_BASE + "/inventory/adjust", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location_id: Number(locId),
-          items: [{ id: item.id, delta }]
-        })
-      });
-
-      const adjData = await adjRes.json();
-      const updated = adjData.updated?.[0];
-
-      lastItemEl.textContent = item.item_name;
-      lastLocationEl.textContent = item.location_id;
-      lastPrevQtyEl.textContent = prevQty;
-      lastDeltaEl.textContent = delta;
-      lastNewQtyEl.textContent = updated?.quantity ?? "—";
-      lastStatusEl.textContent = "OK";
-
-      navigator.vibrate?.(100);
-
-      appendLog(`SCAN OK: ${barcode} Δ${delta}`, false);
-
-    } catch (e) {
-      appendLog("Scan error: " + e.message, true);
-      lastStatusEl.textContent = "Error";
-    }
-  }
-
-
-  // 🔥 FIXED SCANNER: Back Camera + HD + tryHarder + Continuous Focus
-  async function startScanner() {
-    if (scanning) return;
-
-    scanning = true;
-    toggleScanBtn.textContent = "Stop Scanner";
-    toggleScanBtn.classList.remove("primary");
-    toggleScanBtn.classList.add("secondary");
-
-    codeReader = new ZXing.BrowserMultiFormatReader(undefined, {
-      delayBetweenScanAttempts: 120,
-      tryHarder: true
+    const adjRes = await fetch(API_BASE + "/inventory/adjust", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        location_id: Number(locId),
+        items: [{ id: item.id, delta }]
+      })
     });
 
-    const constraints = {
-      video: {
-        facingMode: { exact: "environment" },   // Forces proper back camera
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
-        focusMode: "continuous"
-      }
-    };
+    const adj = await adjRes.json();
+    const updated = adj.updated?.[0];
 
+    lastItemEl.textContent = item.item_name;
+    lastLocationEl.textContent = item.location_id;
+    lastPrevQtyEl.textContent = prev;
+    lastDeltaEl.textContent = delta;
+    lastNewQtyEl.textContent = updated?.quantity ?? "—";
+    lastStatusEl.textContent = "OK";
+
+    if (navigator.vibrate) navigator.vibrate(120);
+
+    appendLog(`SCAN ${barcode} Δ${delta}`);
+
+  } catch(e){
+    appendLog("Scan error: " + e.message,true);
+    lastStatusEl.textContent = "Error";
+  }
+}
+
+// --------------- CAMERA START (with fallback for low-end devices) ---------------
+async function startScanner(){
+  if (scanning) return;
+
+  scanning = true;
+  toggleScanBtn.textContent="Stop Scanner";
+  toggleScanBtn.classList.remove("primary");
+  toggleScanBtn.classList.add("secondary");
+
+  codeReader = new ZXing.BrowserMultiFormatReader(undefined,{ tryHarder:true });
+
+  const resolutions = [
+    { width:1280, height:720 },
+    { width:960,  height:540 },
+    { width:640,  height:480 },
+    { width:480,  height:360 }
+  ];
+
+  for (const res of resolutions){
     try {
-      await codeReader.decodeFromConstraints(constraints, "video", (result, err) => {
-        if (result) {
+      appendLog(`Trying camera ${res.width}x${res.height}`);
+
+      await codeReader.decodeFromConstraints({
+        video:{
+          facingMode:{ ideal:"environment" },
+          width:{ ideal:res.width },
+          height:{ ideal:res.height }
+        }
+      }, "video", (result,err)=>{
+        if (result){
           const now = Date.now();
-          if (now - lastScanTs < SCAN_COOLDOWN_MS) return;
+          if (now-lastScanTs < SCAN_COOLDOWN) return;
           lastScanTs = now;
           handleScan(result.text);
         }
       });
 
-      appendLog("Scanner started (Back Camera HD)");
+      appendLog(`Scanner started at ${res.width}x${res.height}`);
+      return;
 
-    } catch (e) {
-      appendLog("Scanner start failed: " + e.message, true);
-      stopScanner();
+    } catch(e){
+      appendLog(`Failed at ${res.width}x${res.height}`,true);
     }
   }
 
-  function stopScanner() {
-    scanning = false;
-    toggleScanBtn.textContent = "Start Scanner";
-    toggleScanBtn.classList.add("primary");
-    toggleScanBtn.classList.remove("secondary");
-    codeReader?.reset();
-    appendLog("Scanner stopped");
-  }
+  appendLog("Camera failed on all resolutions",true);
+}
 
-  toggleScanBtn.addEventListener("click", () => {
-    scanning ? stopScanner() : startScanner();
-  });
+// --------------- STOP ----------------
+function stopScanner(){
+  scanning = false;
+  toggleScanBtn.textContent="Start Scanner";
+  toggleScanBtn.classList.add("primary");
+  toggleScanBtn.classList.remove("secondary");
+  codeReader?.reset();
+  appendLog("Scanner stopped");
+}
 
-  loadLocations();
+// --------------- BUTTON ----------------
+toggleScanBtn.addEventListener("click",()=>{
+  scanning ? stopScanner() : startScanner();
+});
+
 </script>
-
 </body>
 </html>
