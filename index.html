@@ -273,34 +273,43 @@
     }
   }
 
-  async function startScanner() {
-    if (scanning) return;
-    scanning = true;
-    toggleScanBtn.textContent = "Stop Scanner";
-    toggleScanBtn.classList.remove("primary");
-    toggleScanBtn.classList.add("secondary");
+async function startScanner() {
+  if (scanning) return;
+  scanning = true;
+  toggleScanBtn.textContent = "Stop Scanner";
+  toggleScanBtn.classList.remove("primary");
+  toggleScanBtn.classList.add("secondary");
 
-    codeReader = new ZXing.BrowserMultiFormatReader();
-    try {
-      const devices = await codeReader.listVideoInputDevices();
-      const deviceId = (devices[0] && devices[0].deviceId) || null;
+  codeReader = new ZXing.BrowserMultiFormatReader(undefined, {
+    delayBetweenScanAttempts: 150,
+    tryHarder: true
+  });
 
-      await codeReader.decodeFromVideoDevice(deviceId, "video", (result, err) => {
-        if (result) {
-          const now = Date.now();
-          if (now - lastScanTs < SCAN_COOLDOWN_MS) return;
-          lastScanTs = now;
-          handleScan(result.text);
-        }
-      });
+  try {
+    const constraints = {
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      }
+    };
 
-      appendLog("Scanner started");
+    await codeReader.decodeFromConstraints(constraints, "video", (result, err) => {
+      if (result) {
+        const now = Date.now();
+        if (now - lastScanTs < SCAN_COOLDOWN_MS) return;
+        lastScanTs = now;
+        handleScan(result.text);
+      }
+    });
 
-    } catch (e) {
-      appendLog("Failed to start scanner: " + e.message, true);
-      stopScanner();
-    }
+    appendLog("Scanner started with HD mode");
+
+  } catch (e) {
+    appendLog("Failed to start scanner: " + e.message, true);
+    stopScanner();
   }
+}
 
   function stopScanner() {
     scanning = false;
